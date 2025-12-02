@@ -157,7 +157,22 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
 
         if (status === 'success') {
           runComplete = true;
-          resultData = statusData.output || statusData;
+          // Fetch the actual output from thread state
+          addLog('INFO', 'Fetching research results...', 'core');
+          const stateResponse = await fetch(`${apiUrl}/threads/${thread_id}/state`, {
+            headers: {
+              'x-api-key': apiKey,
+            },
+            signal: abortControllerRef.current.signal,
+          });
+          
+          if (stateResponse.ok) {
+            const stateData = await stateResponse.json();
+            // The output should be in the state values
+            resultData = stateData.values || stateData;
+          } else {
+            resultData = statusData;
+          }
         } else if (status === 'error' || status === 'failed') {
           throw new Error(`Run failed: ${statusData.error || 'Unknown error'}`);
         }
