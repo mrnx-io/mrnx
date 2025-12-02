@@ -125,7 +125,9 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         });
 
         if (!statusResponse.ok) {
-          throw new Error(`Failed to get run status: ${statusResponse.statusText}`);
+          const errorBody = await statusResponse.text();
+          addLog('ERROR', `Status check failed: ${statusResponse.status} - ${errorBody}`, 'core');
+          throw new Error(`Failed to get run status: ${statusResponse.status} - ${errorBody}`);
         }
 
         const statusData = await statusResponse.json();
