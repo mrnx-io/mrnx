@@ -105,24 +105,49 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         { agent_id: 'claude-validator', state: 'pending', details: {}, timestamp: Date.now() / 1000 },
       ]);
 
-      // Step 2: Wait for result
+      // Step 2: Poll for result (LangGraph Cloud doesn't have /wait endpoint)
       addLog('INFO', 'Executing research agents...', 'orchestrator');
       
-      const resultResponse = await fetch(`${apiUrl}/runs/${run_id}/wait`, {
-        headers: {
-          'x-api-key': apiKey,
-        },
-        signal: abortControllerRef.current.signal,
-      });
+      let attempts = 0;
+      const maxAttempts = 120; // 10 minutes max (5s intervals)
+      let runComplete = false;
+      let resultData: Record<string, unknown> | null = null;
 
-      if (!resultResponse.ok) {
-        throw new Error(`Failed to get result: ${resultResponse.statusText}`);
+      while (!runComplete && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        attempts++;
+
+        const statusResponse = await fetch(`${apiUrl}/runs/${run_id}`, {
+          headers: {
+            'x-api-key': apiKey,
+          },
+          signal: abortControllerRef.current.signal,
+        });
+
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to get run status: ${statusResponse.statusText}`);
+        }
+
+        const statusData = await statusResponse.json();
+        const status = statusData.status;
+
+        addLog('INFO', `Run status: ${status} (attempt ${attempts})`, 'orchestrator');
+
+        if (status === 'success') {
+          runComplete = true;
+          resultData = statusData.output || statusData;
+        } else if (status === 'error' || status === 'failed') {
+          throw new Error(`Run failed: ${statusData.error || 'Unknown error'}`);
+        }
+        // Otherwise still running, continue polling
       }
 
-      const resultData = await resultResponse.json();
-      
+      if (!runComplete) {
+        throw new Error('Research timed out after 10 minutes');
+      }
+
       setResult({
-        final_output: resultData.final_output || JSON.stringify(resultData, null, 2),
+        final_output: (resultData as Record<string, unknown>)?.final_output as string || JSON.stringify(resultData, null, 2),
         run_id,
         status: 'success',
       });
