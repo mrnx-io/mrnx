@@ -182,12 +182,32 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         throw new Error('Research timed out after 10 minutes');
       }
 
+      // Robust answer extraction
+      const extractAnswer = (data: Record<string, unknown>): string => {
+        const answer = data?.answer;
+        
+        // Direct string answer
+        if (typeof answer === 'string') return answer;
+        
+        // Object answer - look for text/content fields
+        if (answer && typeof answer === 'object') {
+          const ansObj = answer as Record<string, unknown>;
+          if (typeof ansObj.text === 'string') return ansObj.text;
+          if (typeof ansObj.content === 'string') return ansObj.content;
+          if (typeof ansObj.response === 'string') return ansObj.response;
+          // Return just the answer object stringified
+          return JSON.stringify(ansObj, null, 2);
+        }
+        
+        // Fallback to final_output
+        if (typeof data?.final_output === 'string') return data.final_output;
+        
+        // Last resort
+        return JSON.stringify(data, null, 2);
+      };
+
       setResult({
-        final_output: typeof (resultData as Record<string, unknown>)?.answer === 'string' 
-          ? (resultData as Record<string, unknown>).answer as string
-          : typeof (resultData as Record<string, unknown>)?.final_output === 'string'
-            ? (resultData as Record<string, unknown>).final_output as string
-            : JSON.stringify(resultData, null, 2),
+        final_output: extractAnswer(resultData as Record<string, unknown>),
         run_id,
         status: 'success',
       });
