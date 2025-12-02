@@ -1,71 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import dynamic from 'next/dynamic';
 import { useLangGraphResearch } from '../../hooks/useLangGraphResearch';
+import { Console } from '../../components/research/Console';
+import { Trace } from '../../components/research/Trace';
+
+// Dynamically import Orbit so it only runs on client (R3F requirement)
+const Orbit = dynamic(() => import('../../components/research/Orbit').then(mod => mod.Orbit), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full absolute inset-0 -z-10 bg-gradient-to-b from-[#020202] to-[#0a0a0a]" />
+  )
+});
 
 export default function ResearchPage() {
-  const { isProcessing, logs, result, error, startResearch } = useLangGraphResearch();
-  const [query, setQuery] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      startResearch(query);
-    }
-  };
+  const { isConnected, isProcessing, logs, agents, plan, result, startResearch } = useLangGraphResearch();
 
   return (
-    <main className="min-h-screen bg-black text-white p-8">
-      <h1 className="text-2xl mb-6">Research Test</h1>
-      
-      {/* Input */}
-      <form onSubmit={handleSubmit} className="mb-8">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter research query..."
-          className="w-full max-w-xl p-3 bg-white/10 border border-white/20 rounded text-white mb-4"
-          disabled={isProcessing}
-        />
-        <button 
-          type="submit" 
-          disabled={isProcessing || !query.trim()}
-          className="px-6 py-2 bg-blue-600 rounded disabled:opacity-50"
-        >
-          {isProcessing ? 'Processing...' : 'Start Research'}
-        </button>
-      </form>
+    <main className="h-screen w-screen flex flex-col relative overflow-hidden bg-black text-white font-sans selection:bg-blue-500/30">
+      {/* Layer 1: Orbit (Background / Top) */}
+      <div className="absolute inset-0 z-0">
+        <Orbit agents={agents} isProcessing={isProcessing} />
+      </div>
 
-      {/* Error */}
-      {error && (
-        <div className="p-4 mb-4 bg-red-500/20 border border-red-500 rounded">
-          <strong>Error:</strong> {error}
+      {/* Layer 2: Console (Middle / Interaction) */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center pointer-events-none">
+        <div className="w-full max-w-6xl h-[70vh] pointer-events-auto perspective-1000">
+          <Console plan={plan} result={result} onSearch={startResearch} isProcessing={isProcessing} />
         </div>
-      )}
+      </div>
 
-      {/* Result */}
-      {result && (
-        <div className="p-6 bg-green-500/10 border border-green-500/50 rounded mb-8">
-          <h2 className="text-xl text-green-400 mb-4">✓ Result Received</h2>
-          <pre className="whitespace-pre-wrap text-sm bg-black/50 p-4 rounded overflow-auto max-h-[50vh]">
-            {result.final_output}
-          </pre>
-          <p className="text-xs text-white/40 mt-2">Run ID: {result.run_id}</p>
-        </div>
-      )}
+      {/* Layer 3: Trace (Bottom / Logs) */}
+      <div className="relative z-20 h-[20vh] w-full border-t border-white/5 bg-black/40 backdrop-blur-xl pointer-events-auto">
+        <Trace logs={logs} />
+      </div>
 
-      {/* Logs */}
-      <div className="border border-white/10 rounded">
-        <h3 className="p-3 border-b border-white/10 text-sm text-white/60">Logs ({logs.length})</h3>
-        <div className="p-3 max-h-[30vh] overflow-auto font-mono text-xs">
-          {logs.map((log, i) => (
-            <div key={i} className={`py-1 ${log.level === 'ERROR' ? 'text-red-400' : 'text-white/60'}`}>
-              [{log.source}] {log.message}
-            </div>
-          ))}
-          {logs.length === 0 && <span className="text-white/30">No logs yet</span>}
-        </div>
+      {/* Connection Status Indicator */}
+      <div className="absolute top-6 right-6 z-50 flex items-center space-x-3 bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/5">
+        <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500'} transition-colors duration-500`} />
+        <span className="text-[10px] text-white/40 uppercase tracking-widest font-mono font-medium">
+          {isConnected ? 'Neural Link Active' : 'Offline'}
+        </span>
       </div>
     </main>
   );
