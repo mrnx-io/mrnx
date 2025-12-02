@@ -182,27 +182,39 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         throw new Error('Research timed out after 10 minutes');
       }
 
-      // Robust answer extraction
+      // Robust answer extraction - adapted to backend schema
       const extractAnswer = (data: Record<string, unknown>): string => {
-        const answer = data?.answer;
+        // Navigate to final_output.answer which contains the human-readable content
+        const finalOutput = data?.final_output as Record<string, unknown>;
+        const answer = finalOutput?.answer as Record<string, unknown>;
         
-        // Direct string answer
-        if (typeof answer === 'string') return answer;
-        
-        // Object answer - look for text/content fields
-        if (answer && typeof answer === 'object') {
-          const ansObj = answer as Record<string, unknown>;
-          if (typeof ansObj.text === 'string') return ansObj.text;
-          if (typeof ansObj.content === 'string') return ansObj.content;
-          if (typeof ansObj.response === 'string') return ansObj.response;
-          // Return just the answer object stringified
-          return JSON.stringify(ansObj, null, 2);
+        if (answer) {
+          const summary = answer.executive_summary as string || '';
+          const analysis = answer.detailed_analysis as string || '';
+          
+          if (summary || analysis) {
+            let output = '';
+            if (summary) {
+              output += `## Executive Summary\n\n${summary}\n\n`;
+            }
+            if (analysis) {
+              output += `## Detailed Analysis\n\n${analysis}`;
+            }
+            return output.trim();
+          }
         }
         
-        // Fallback to final_output
-        if (typeof data?.final_output === 'string') return data.final_output;
+        // Fallback: check root level answer
+        const rootAnswer = data?.answer;
+        if (typeof rootAnswer === 'string') return rootAnswer;
+        if (rootAnswer && typeof rootAnswer === 'object') {
+          const ansObj = rootAnswer as Record<string, unknown>;
+          if (typeof ansObj.executive_summary === 'string') {
+            return ansObj.executive_summary;
+          }
+        }
         
-        // Last resort
+        // Last resort - show structured data
         return JSON.stringify(data, null, 2);
       };
 
