@@ -183,7 +183,11 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
       }
 
       setResult({
-        final_output: (resultData as Record<string, unknown>)?.final_output as string || JSON.stringify(resultData, null, 2),
+        final_output: typeof (resultData as Record<string, unknown>)?.answer === 'string' 
+          ? (resultData as Record<string, unknown>).answer as string
+          : typeof (resultData as Record<string, unknown>)?.final_output === 'string'
+            ? (resultData as Record<string, unknown>).final_output as string
+            : JSON.stringify(resultData, null, 2),
         run_id,
         status: 'success',
       });
