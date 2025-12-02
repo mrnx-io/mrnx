@@ -15,7 +15,7 @@ interface UseModalResearchReturn {
 
 /**
  * Hook for research using Modal-deployed Autonomous R&D Engine.
- * Uses the Next.js API route which proxies to Modal.
+ * Calls Modal directly to bypass Vercel function timeout limits.
  */
 export function useModalResearch(): UseModalResearchReturn {
   const [isConnected] = useState(true);
@@ -49,6 +49,15 @@ export function useModalResearch(): UseModalResearchReturn {
     setPlan(null);
     
     addLog('INFO', `Initializing research: ${query}`, 'user');
+
+    // Get Modal URL from environment
+    const modalUrl = process.env.NEXT_PUBLIC_MODAL_RESEARCH_URL;
+    if (!modalUrl) {
+      setError('NEXT_PUBLIC_MODAL_RESEARCH_URL not configured');
+      addLog('ERROR', 'Modal research URL not configured', 'system');
+      setIsProcessing(false);
+      return;
+    }
 
     // Set up plan
     const researchPlan: ResearchPlan = {
@@ -108,8 +117,8 @@ export function useModalResearch(): UseModalResearchReturn {
         ));
       }, 12000);
 
-      // Call the API route
-      const response = await fetch('/api/research', {
+      // Call Modal endpoint directly (bypasses Vercel timeout)
+      const response = await fetch(modalUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
