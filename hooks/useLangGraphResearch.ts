@@ -182,44 +182,103 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         throw new Error('Research timed out after 10 minutes');
       }
 
-      // Robust answer extraction - adapted to backend schema
-      const extractAnswer = (data: Record<string, unknown>): string => {
-        // Navigate to final_output.answer which contains the human-readable content
+      // Complete research output formatter
+      const formatCompleteOutput = (data: Record<string, unknown>): string => {
         const finalOutput = data?.final_output as Record<string, unknown>;
+        if (!finalOutput) return JSON.stringify(data, null, 2);
+        
         const answer = finalOutput?.answer as Record<string, unknown>;
+        const evidence = finalOutput?.evidence as Record<string, unknown>;
+        const openQuestions = finalOutput?.open_questions as Array<Record<string, unknown>>;
+        const limitations = finalOutput?.limitations as string[];
+        const fieldReports = data?.field_reports as Array<Record<string, unknown>>;
         
-        if (answer) {
-          const summary = answer.executive_summary as string || '';
-          const analysis = answer.detailed_analysis as string || '';
-          
-          if (summary || analysis) {
-            let output = '';
-            if (summary) {
-              output += `## Executive Summary\n\n${summary}\n\n`;
-            }
-            if (analysis) {
-              output += `## Detailed Analysis\n\n${analysis}`;
-            }
-            return output.trim();
-          }
+        let output = '';
+        
+        // Executive Summary
+        if (answer?.executive_summary) {
+          output += `# Executive Summary\n\n${answer.executive_summary}\n\n`;
         }
         
-        // Fallback: check root level answer
-        const rootAnswer = data?.answer;
-        if (typeof rootAnswer === 'string') return rootAnswer;
-        if (rootAnswer && typeof rootAnswer === 'object') {
-          const ansObj = rootAnswer as Record<string, unknown>;
-          if (typeof ansObj.executive_summary === 'string') {
-            return ansObj.executive_summary;
-          }
+        // Detailed Analysis
+        if (answer?.detailed_analysis) {
+          output += `# Detailed Analysis\n\n${answer.detailed_analysis}\n\n`;
         }
         
-        // Last resort - show structured data
-        return JSON.stringify(data, null, 2);
+        // Key Themes
+        const themes = answer?.themes as Array<Record<string, unknown>>;
+        if (themes?.length) {
+          output += `# Key Themes\n\n`;
+          themes.forEach((theme) => {
+            output += `**${theme.name}** (Confidence: ${Math.round((theme.confidence as number || 0) * 100)}%)\n`;
+            output += `${theme.description}\n\n`;
+          });
+        }
+        
+        // Field Reports (Agent Findings)
+        if (fieldReports?.length) {
+          output += `# Research Findings\n\n`;
+          fieldReports.forEach((report) => {
+            output += `## ${report.agent_id || report.agent_type}\n`;
+            const findings = report.findings as Array<Record<string, unknown>>;
+            findings?.forEach((finding) => {
+              output += `${finding.claim}\n`;
+              if (finding.source_url) {
+                output += `📎 Source: ${finding.source_url}\n`;
+              }
+              output += '\n';
+            });
+          });
+        }
+        
+        // Contradictions
+        const contradictions = answer?.contradictions as Array<Record<string, unknown>>;
+        if (contradictions?.length) {
+          output += `# Contradictions Found\n\n`;
+          contradictions.forEach((c) => {
+            const claims = c.claims as string[];
+            output += `- **Claims:** ${claims?.join(' vs ')}\n`;
+            output += `  **Resolution:** ${c.resolution}\n\n`;
+          });
+        }
+        
+        // Open Questions
+        if (openQuestions?.length) {
+          output += `# Open Questions\n\n`;
+          openQuestions.forEach((q) => {
+            output += `- **${q.question}**\n  ${q.reason}\n\n`;
+          });
+        }
+        
+        // Limitations
+        if (limitations?.length) {
+          output += `# Limitations\n\n`;
+          limitations.forEach((l) => {
+            output += `- ${l}\n`;
+          });
+          output += '\n';
+        }
+        
+        // Sources
+        const sources = evidence?.sources as Array<Record<string, unknown>>;
+        if (sources?.length) {
+          output += `# Sources\n\n`;
+          sources.forEach((s, i) => {
+            output += `${i + 1}. ${s.url || s.source || JSON.stringify(s)}\n`;
+          });
+        }
+        
+        // Confidence Score
+        if (answer?.confidence || answer?.adjusted_confidence) {
+          const conf = (answer.adjusted_confidence || answer.confidence) as number;
+          output += `\n---\n**Research Confidence:** ${Math.round(conf * 100)}%\n`;
+        }
+        
+        return output.trim() || JSON.stringify(data, null, 2);
       };
 
       setResult({
-        final_output: extractAnswer(resultData as Record<string, unknown>),
+        final_output: formatCompleteOutput(resultData as Record<string, unknown>),
         run_id,
         status: 'success',
       });
