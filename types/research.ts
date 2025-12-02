@@ -29,10 +29,17 @@ export interface LangGraphMessage {
   timestamp: number;
 }
 
-export interface ResearchResult {
-  final_output: string;
-  run_id: string;
-  status: 'success' | 'error';
+export interface ResearchResult extends Record<string, unknown> {
+  final_output?: string;
+  run_id?: string;
+  status?: 'success' | 'error' | 'streaming';
+  executive_summary?: string;
+  detailed_analysis?: string;
+  themes?: Array<{ theme: string; confidence: number }>;
+  contradictions?: Array<{ claims: string[]; resolution: string }>;
+  open_questions?: string[];
+  limitations?: string[];
+  confidence?: number;
 }
 
 export interface LangGraphRunResponse {
