@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // Node.js runtime with Fluid Compute (enable in Vercel dashboard)
 // Supports up to 60s free, 14 min paid
 export const runtime = 'nodejs';
-export const maxDuration = 60; // 60s for free tier, increase for paid
+export const maxDuration = 600; // Match Modal timeout
 
 const MODAL_RESEARCH_URL = process.env.MODAL_RESEARCH_URL || 'https://mrnx-io--autonomous-rd-engine-research.modal.run';
 
