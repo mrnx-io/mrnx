@@ -68,7 +68,7 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
           'x-api-key': apiKey,
         },
         body: JSON.stringify({
-          graph_id: 'autonomous-rd-engine',
+          graph_id: 'research_graph',
           input: { query },
         }),
         signal: abortControllerRef.current.signal,
