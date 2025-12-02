@@ -14,7 +14,7 @@ interface UseLangGraphResearchReturn {
 }
 
 export function useLangGraphResearch(): UseLangGraphResearchReturn {
-  const [isConnected] = useState(true); // REST is always "connected"
+  const [isConnected] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [agents, setAgents] = useState<AgentState[]>([]);
@@ -33,7 +33,6 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
   }, []);
 
   const startResearch = useCallback(async (query: string) => {
-    // Cancel any existing request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -58,10 +57,31 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
     }
 
     try {
-      // Step 1: Create a run
+      // Step 1: Create a thread
+      addLog('INFO', 'Creating thread...', 'core');
+      
+      const threadResponse = await fetch(`${apiUrl}/threads`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        body: JSON.stringify({}),
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!threadResponse.ok) {
+        const errorBody = await threadResponse.text();
+        throw new Error(`Failed to create thread: ${threadResponse.status} - ${errorBody}`);
+      }
+
+      const { thread_id } = await threadResponse.json();
+      addLog('INFO', `Thread created: ${thread_id.substring(0, 8)}...`, 'core');
+
+      // Step 2: Create a run within the thread
       addLog('INFO', 'Creating research run...', 'core');
       
-      const createResponse = await fetch(`${apiUrl}/runs`, {
+      const createResponse = await fetch(`${apiUrl}/threads/${thread_id}/runs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -75,13 +95,14 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
       });
 
       if (!createResponse.ok) {
-        throw new Error(`Failed to create run: ${createResponse.statusText}`);
+        const errorBody = await createResponse.text();
+        throw new Error(`Failed to create run: ${createResponse.status} - ${errorBody}`);
       }
 
       const { run_id } = await createResponse.json();
       addLog('INFO', `Run created: ${run_id.substring(0, 8)}...`, 'core');
 
-      // Simulate plan arrival (in real impl, this would come from streaming)
+      // Simulate plan
       const simulatedPlan: ResearchPlan = {
         query,
         goal_hash: run_id,
@@ -98,26 +119,25 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
       setPlan(simulatedPlan);
       addLog('INFO', 'Research plan generated', 'orchestrator');
 
-      // Simulate agent activation
       setAgents([
         { agent_id: 'grok-analyst', state: 'active', details: {}, timestamp: Date.now() / 1000 },
         { agent_id: 'claude-synthesizer', state: 'pending', details: {}, timestamp: Date.now() / 1000 },
         { agent_id: 'claude-validator', state: 'pending', details: {}, timestamp: Date.now() / 1000 },
       ]);
 
-      // Step 2: Poll for result (LangGraph Cloud doesn't have /wait endpoint)
+      // Step 3: Poll for result using thread endpoint
       addLog('INFO', 'Executing research agents...', 'orchestrator');
       
       let attempts = 0;
-      const maxAttempts = 120; // 10 minutes max (5s intervals)
+      const maxAttempts = 120;
       let runComplete = false;
       let resultData: Record<string, unknown> | null = null;
 
       while (!runComplete && attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+        await new Promise(resolve => setTimeout(resolve, 5000));
         attempts++;
 
-        const statusResponse = await fetch(`${apiUrl}/runs/${run_id}`, {
+        const statusResponse = await fetch(`${apiUrl}/threads/${thread_id}/runs/${run_id}`, {
           headers: {
             'x-api-key': apiKey,
           },
@@ -141,7 +161,6 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
         } else if (status === 'error' || status === 'failed') {
           throw new Error(`Run failed: ${statusData.error || 'Unknown error'}`);
         }
-        // Otherwise still running, continue polling
       }
 
       if (!runComplete) {
@@ -155,8 +174,6 @@ export function useLangGraphResearch(): UseLangGraphResearchReturn {
       });
       
       addLog('INFO', 'Research complete', 'system');
-      
-      // Update agents to complete
       setAgents(prev => prev.map(a => ({ ...a, state: 'complete' })));
 
     } catch (err) {
