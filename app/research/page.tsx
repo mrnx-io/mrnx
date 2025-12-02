@@ -2,7 +2,7 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { useLangGraphResearch } from '../../hooks/useLangGraphResearch';
+import { useModalResearch } from '../../hooks/useModalResearch';
 import { Console } from '../../components/research/Console';
 import { Trace } from '../../components/research/Trace';
 
@@ -15,7 +15,7 @@ const Orbit = dynamic(() => import('../../components/research/Orbit').then(mod =
 });
 
 export default function ResearchPage() {
-  const { isConnected, isProcessing, logs, agents, plan, result, startResearch } = useLangGraphResearch();
+  const { isConnected, isProcessing, logs, agents, plan, result, startResearch } = useModalResearch();
 
   return (
     <main className="h-screen w-screen flex flex-col relative overflow-hidden bg-black text-white font-sans selection:bg-blue-500/30">
