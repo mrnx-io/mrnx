@@ -20,10 +20,10 @@ export function Console({ plan, result, onSearch, isProcessing }: ConsoleProps) 
   const [input, setInput] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Derive mode from state - user can override with manual selection
+  // Derive mode from state - result takes precedence
   const mode: Mode = useMemo(() => {
+    if (result) return 'creator';     // Result always wins - user must see output
     if (manualMode) return manualMode;
-    if (result) return 'creator';
     if (plan) return 'architect';
     return 'twin';
   }, [manualMode, plan, result]);
