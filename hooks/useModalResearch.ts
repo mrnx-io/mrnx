@@ -50,15 +50,6 @@ export function useModalResearch(): UseModalResearchReturn {
     
     addLog('INFO', `Initializing research: ${query}`, 'user');
 
-    // Get Modal URL from environment
-    const modalUrl = process.env.NEXT_PUBLIC_MODAL_RESEARCH_URL;
-    if (!modalUrl) {
-      setError('NEXT_PUBLIC_MODAL_RESEARCH_URL not configured');
-      addLog('ERROR', 'Modal research URL not configured', 'system');
-      setIsProcessing(false);
-      return;
-    }
-
     // Set up plan
     const researchPlan: ResearchPlan = {
       query,
@@ -117,8 +108,8 @@ export function useModalResearch(): UseModalResearchReturn {
         ));
       }, 12000);
 
-      // Call Modal endpoint directly (bypasses Vercel timeout)
-      const response = await fetch(modalUrl, {
+      // Call the API route (Edge function with 300s timeout)
+      const response = await fetch('/api/research', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
