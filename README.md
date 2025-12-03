@@ -1,36 +1,96 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# R&D Engine Frontend
+
+Next.js frontend for the Autonomous R&D Engine with Vercel AI SDK integration.
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- Restate server running (backend)
+
+### Installation
+
+```bash
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` to `.env.local`:
 
-## Learn More
+```bash
+cp .env.example .env.local
+```
 
-To learn more about Next.js, take a look at the following resources:
+Configure `RESTATE_INGRESS_URL` to point to your Restate server.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+frontend/
+├── app/
+│   ├── api/
+│   │   └── research/
+│   │       └── route.ts    # API route → Restate backend
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx            # Main research interface
+├── hooks/
+│   └── useResearch.ts      # Research state management
+└── package.json
+```
 
-## Deploy on Vercel
+## API Endpoints
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### POST /api/research
+Execute a research query via the Restate backend.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Request:**
+```json
+{
+  "query": "Your research question",
+  "sessionId": "optional-session-id"
+}
+```
+
+**Response:**
+```json
+{
+  "request_id": "research-xxx",
+  "output": {
+    "executive_summary": "...",
+    "themes": [...],
+    "contradictions": [...],
+    "verification": {...}
+  },
+  "duration_seconds": 120,
+  "tokens_used": 50000
+}
+```
+
+## Deployment
+
+### Vercel
+
+```bash
+npx vercel
+```
+
+Set `RESTATE_INGRESS_URL` in Vercel environment variables.
+
+### Docker
+
+```bash
+docker build -t rd-engine-frontend .
+docker run -p 3000:3000 \
+  -e RESTATE_INGRESS_URL=http://restate:8080 \
+  rd-engine-frontend
+```
